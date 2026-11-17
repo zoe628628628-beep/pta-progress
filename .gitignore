@@ -1,0 +1,6 @@
+# 未加密的原始頁面、LINE 匯出檔、任何密碼都不能 commit
+private/
+*.txt
+*.plain.html
+.env
+.DS_Store

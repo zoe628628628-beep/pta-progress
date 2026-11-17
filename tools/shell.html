@@ -1,0 +1,61 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex, nofollow">
+<title>家長會進度（需密碼）</title>
+<style>
+:root { --bg: #f4f5f8; --surface: #fff; --ink: #1b2233; --muted: #5d6578; --line: #dde1ea; --navy: #1f3a6e; --red: #c8283c; color-scheme: light; }
+@media (prefers-color-scheme: dark) { :root { --bg: #121620; --surface: #1b2130; --ink: #e8ebf2; --muted: #a2a9ba; --line: #2c3446; --navy: #8fb0ee; --red: #f0717f; color-scheme: dark; } }
+* { box-sizing: border-box; }
+html, body { margin: 0; height: 100%; }
+body { background: var(--bg); color: var(--ink); font-family: "PingFang TC", "Noto Sans TC", "Microsoft JhengHei", sans-serif; display: grid; place-items: center; padding: 16px; }
+form { background: var(--surface); border: 1px solid var(--line); border-radius: 12px; padding: 28px 24px; width: min(360px, 100%); display: grid; gap: 14px; }
+h1 { margin: 0; font-size: 20px; color: var(--navy); }
+p { margin: 0; color: var(--muted); font-size: 14px; line-height: 1.6; }
+label { font-size: 14px; }
+input { font: inherit; padding: 10px 12px; border-radius: 8px; border: 1px solid var(--line); background: var(--bg); color: var(--ink); width: 100%; }
+button { font: inherit; padding: 10px 12px; border-radius: 8px; border: 0; background: var(--navy); color: #fff; cursor: pointer; }
+button:focus-visible, input:focus-visible { outline: 2px solid var(--navy); outline-offset: 2px; }
+#msg { color: var(--red); font-size: 14px; min-height: 1.2em; }
+</style>
+</head>
+<body>
+<form id="f" autocomplete="off">
+  <h1>家長會事務進度</h1>
+  <p>此頁內容已加密，請輸入家長會提供的密碼。</p>
+  <label for="pw">密碼</label>
+  <input id="pw" type="password" required autofocus>
+  <button type="submit" id="go">開啟</button>
+  <div id="msg" role="alert"></div>
+</form>
+<script>
+var PAYLOAD = "__PAYLOAD__";
+var ITER = __ITER__;
+function b64(s) { var b = atob(s), u = new Uint8Array(b.length); for (var i = 0; i < b.length; i++) u[i] = b.charCodeAt(i); return u; }
+async function decrypt(pw) {
+  var all = b64(PAYLOAD);
+  var salt = all.slice(8, 16), ct = all.slice(16);
+  var base = await crypto.subtle.importKey('raw', new TextEncoder().encode(pw), 'PBKDF2', false, ['deriveBits']);
+  var bits = new Uint8Array(await crypto.subtle.deriveBits({ name: 'PBKDF2', salt: salt, iterations: ITER, hash: 'SHA-256' }, base, 384));
+  var key = await crypto.subtle.importKey('raw', bits.slice(0, 32), 'AES-CBC', false, ['decrypt']);
+  var plain = await crypto.subtle.decrypt({ name: 'AES-CBC', iv: bits.slice(32, 48) }, key, ct);
+  return new TextDecoder().decode(plain);
+}
+document.getElementById('f').addEventListener('submit', async function (e) {
+  e.preventDefault();
+  var msg = document.getElementById('msg'), go = document.getElementById('go');
+  msg.textContent = ''; go.disabled = true; go.textContent = '解密中…';
+  try {
+    var html = await decrypt(document.getElementById('pw').value);
+    if (html.indexOf('<html') < 0) throw new Error('bad');
+    document.open(); document.write(html); document.close();
+  } catch (err) {
+    msg.textContent = '密碼不正確，請再試一次。';
+    go.disabled = false; go.textContent = '開啟';
+  }
+});
+</script>
+</body>
+</html>
